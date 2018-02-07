@@ -1,0 +1,22 @@
+// Syntax test
+
+my_struct := (foo: int, bar: string, baz: float)
+
+my_func1 := (foo: int, bar: string, baz: float) -> int {
+  say "called myfunc1";
+  return 1;
+}
+
+my_func2 := my_struct -> int {
+  say "called myfunc2";
+  return 2;
+}
+
+main := () -> void {
+  // These are equivalent
+  x1 = my_func1(foo = 3, bar = "hello", baz = 3.14);
+  say x1;
+
+  my_object = (foo = 3, bar = "hello", baz = 3.14);
+  say my_func2 my_object;
+}
