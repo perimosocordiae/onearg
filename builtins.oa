@@ -1,0 +1,12 @@
+// scalar builtins: int, float, string, void
+
+say := int -> void {}
+say := float -> void {}
+say := string -> void {}
+
+// TODO: support Any types here.
+if := (cond: int, then: void, else: void) -> void {}
+if := (cond: int, then: int, else: int) -> int {}
+if := (cond: int, then: float, else: float) -> float {}
+if := (cond: int, then: string, else: string) -> string {}
+// also thunk[T] versions of the above

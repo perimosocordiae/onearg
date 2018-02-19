@@ -1,5 +1,5 @@
 import ast
-from type_objects import StructType, FuncType, BuiltinType
+from type_objects import StructType, FuncType, BuiltinType, ThunkType
 
 
 class CallExpr(object):
@@ -8,8 +8,8 @@ class CallExpr(object):
     self.func_arg = expression(parse_result['expr'])
     self.type = None
 
-  def __str__(self):
-    return '%s(%s)' % (self.func_name, self.func_arg)
+  def as_c_like(self):
+    return '%s(%s)' % (self.func_name, self.func_arg.as_c_like())
 
   def infer_types(self, scope, known_types, ret_type):
     if self.type is None:
@@ -46,7 +46,7 @@ class Literal(object):
     else:
       self.type = BuiltinType('int')
 
-  def __str__(self):
+  def as_c_like(self):
     return repr(self.value)
 
   def infer_types(self, scope, known_types, ret_type):
@@ -62,8 +62,8 @@ class AssignExpr(object):
     self.value = expression(parse_result['expr'])
     self.type = None
 
-  def __str__(self):
-    return '%s = %s' % (self.name, self.value)
+  def as_c_like(self):
+    return '%s = %s' % (self.name, self.value.as_c_like())
 
   def infer_types(self, scope, known_types, ret_type):
     if self.type is None:
@@ -85,8 +85,9 @@ class StructExpr(object):
       self.fields[assn.name] = assn.value
     self.type = None
 
-  def __str__(self):
-    return '{ %s }' % ', '.join('%s: %s' % t for t in self.fields.items())
+  def as_c_like(self):
+    return '{ %s }' % ', '.join('%s: %s' % (n, f.as_c_like())
+                                for n, f in self.fields.items())
 
   def infer_types(self, scope, known_types, ret_type):
     if self.type is None:
@@ -104,7 +105,7 @@ class Reference(object):
     self.name = parse_result
     self.type = None
 
-  def __str__(self):
+  def as_c_like(self):
     return self.name
 
   def infer_types(self, scope, known_types, ret_type):
@@ -123,8 +124,8 @@ class ReturnExpr(object):
     self.ret_val = expression(parse_result['expr'])
     self.type = None
 
-  def __str__(self):
-    return 'return %s' % self.ret_val
+  def as_c_like(self):
+    return 'return %s' % self.ret_val.as_c_like()
 
   def infer_types(self, scope, known_types, ret_type):
     if self.type is None:
@@ -141,6 +142,36 @@ class ReturnExpr(object):
     return self.ret_val.execute(scope)
 
 
+class ScopeExpr(object):
+  def __init__(self, parse_result):
+    self.thunk = NoCaptureThunk([expression(expr) for expr in parse_result])
+    self.type = None
+
+  def as_c_like(self):
+    return '{\n%s}' % ''.join(x.as_c_like() + ';\n' for x in self.thunk.body)
+
+  def infer_types(self, scope, known_types, ret_type):
+    if self.type is None:
+      for expr in self.thunk.body:
+        t = expr.infer_types(scope, known_types, ret_type)
+      self.type = ThunkType(t)
+    return self.type
+
+  def execute(self, scope):
+    return self.thunk
+
+
+class NoCaptureThunk(object):
+  def __init__(self, exprs):
+    self.body = exprs
+
+  def execute(self, scope):
+    inner_scope = scope.copy()
+    for expr in self.body:
+      res = expr.execute(inner_scope)
+    return res
+
+
 EXPRESSIONS = {
     'call_expr': CallExpr,
     'literal': Literal,
@@ -148,6 +179,7 @@ EXPRESSIONS = {
     'struct_expr': StructExpr,
     'id': Reference,
     'return': ReturnExpr,
+    'scope': ScopeExpr,
 }
 
 
@@ -161,12 +193,12 @@ class FuncDef(object):
   def __init__(self, name, parse_result):
     self.name = name
     self.type = FuncType(parse_result['func_type'])
-    self.body = [expression(expr) for expr in parse_result['func_body']]
+    self.body = [expression(expr) for expr in parse_result['scope']]
 
-  def __str__(self):
+  def as_c_like(self):
     return '%s %s(%s) {\n%s}' % (
-        self.type.ret, self.name, self.type.arg,
-        ''.join('  %s;\n' % b for b in self.body))
+        self.type.ret.as_c_like(), self.name, self.type.arg.as_c_like(),
+        ''.join('  %s;\n' % b.as_c_like() for b in self.body))
 
   def info(self, field=None):
     if field:
@@ -199,8 +231,8 @@ class StructDef(object):
     self.name = name
     self.type = StructType(parse_result)
 
-  def __str__(self):
-    return 'struct %s %s;' % (self.name, self.type)
+  def as_c_like(self):
+    return 'struct %s %s;' % (self.name, self.type.as_c_like())
 
   def info(self, field=None):
     return 'struct %s, field %s' % (self.name, field)
@@ -225,5 +257,5 @@ if __name__ == '__main__':
   from parser import PARSER
   prog = PARSER.parseFile(sys.argv[1], parseAll=True)
   for defn in build_ast(prog):
-    print(defn)
+    print(defn.as_c_like())
     print()

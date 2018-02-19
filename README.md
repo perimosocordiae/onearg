@@ -20,7 +20,7 @@ To print a C-like representation of a onearg program:
 
 ## Known Issues
 
-Conditionals and looping aren't implemented yet.
+Looping and type-variables aren't implemented yet.
 
 Any feature not in the example program is likely broken or missing.
 

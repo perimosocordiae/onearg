@@ -51,27 +51,30 @@ def _setup():
       RPAREN,
   ])).setResultsName('struct_expr')
 
+  # scopes: "{ expr; expr; ... }"
+  scope = pp.Group(pp.And([
+      pp.Literal('{').suppress(),
+      pp.ZeroOrMore(expression + pp.Literal(';').suppress()),
+      pp.Literal('}').suppress(),
+  ])).setResultsName('scope')
+
   # function definitions are a signature + body: "argtype -> rettype { body }"
   func_type = pp.Group(pp.And([
       pp.Group(struct_def | identifier).setResultsName('arg_type'),
       pp.Literal('->').suppress(),
       pp.Group(struct_def | identifier).setResultsName('ret_type'),
   ])).setResultsName('func_type')
-  # function bodies are semicolon-delimited expressions
-  func_body = pp.Group(
-      pp.ZeroOrMore(expression + pp.Literal(';').suppress())
-  ).setResultsName('func_body')
+  # function bodies are just scopes
   func_def = pp.Group(pp.And([
       func_type,
-      pp.Literal('{').suppress(),
-      func_body,
-      pp.Literal('}').suppress(),
+      scope
   ])).setResultsName('func_def')
 
   # note that function definitions aren't expressions, so no lambdas allowed
   expression << pp.Group(pp.Or([
       ret_expr,
       literal,
+      scope,
       assignment_expr,
       struct_expr,
       call_expr,

@@ -6,19 +6,20 @@ class TypeReference(object):
       raise TypeError('TypeReference needs a string, got %r' % type(name))
     self.name = name
 
-  def __repr__(self):
-    return self.name
-
   def check_sub_types(self, unused):
     return []
 
   def resolve(self, known_types):
     types = known_types[self.name]
+    assert types, 'No types for name: %s' % self.name
     assert len(types) == 1, 'Too many types for name: %s' % self.name
     key, = types.keys()
     return types[key].resolve(known_types)
 
   def signature(self):
+    return self.name
+
+  def as_c_like(self):
     return self.name
 
 
@@ -28,9 +29,20 @@ class BuiltinType(TypeReference):
 
   def match(self, other):
     if not isinstance(other, BuiltinType):
-      return '%s != %s (not a builtin)' % (self, other)
+      return '%s != %s (not a builtin)' % (self.name, other.signature())
     if self.name != other.name:
-      return '%s != %s' % (self, other)
+      return '%s != %s' % (self.name, other.name)
+
+
+class ThunkType(object):
+  def __init__(self, wrapped_type):
+    self.wrapped_type = wrapped_type
+
+  def signature(self):
+    return 'thunk[%s]' % self.wrapped_type.signature()
+
+  def match(self, other):
+    return self.wrapped_type.match(other)
 
 
 class StructType(object):
@@ -40,8 +52,8 @@ class StructType(object):
       name, typ = tuple(f)
       self.fields[name] = TypeReference(typ)
 
-  def __repr__(self):
-    fields = ['{1} {0};'.format(*t) for t in self.fields.items()]
+  def as_c_like(self):
+    fields = ['%s %s;' % (t.as_c_like(), n) for n,t in self.fields.items()]
     return '{ %s }' % ' '.join(fields)
 
   def check_sub_types(self, known_types):
@@ -57,6 +69,16 @@ class StructType(object):
   def match(self, other):
     if not isinstance(other, StructType):
       return '%s != %s (not a struct)' % (self, other)
+    ours = set(self.fields)
+    theirs = set(other.fields)
+    missing = ', '.join('"%s"' % f for f in sorted(ours - theirs))
+    extra = ', '.join('"%s"' % f for f in sorted(theirs - ours))
+    if missing and extra:
+      return 'missing fields %s, extra fields %s' % (missing, extra)
+    if missing:
+      return 'missing fields %s' % missing
+    if extra:
+      return 'extra fields %s' % extra
     for name in other.fields:
       if name not in self.fields:
         return 'missing field %s' % name
@@ -65,7 +87,7 @@ class StructType(object):
         return 'field %s mismatch: %s' % (name, msg)
 
   def signature(self):
-    return '(%s)' % (','.join(map(str, self.fields)))
+    return tuple(sorted((n, t.signature()) for n,t in self.fields.items()))
 
 
 class FuncType(object):

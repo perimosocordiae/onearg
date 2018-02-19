@@ -1,0 +1,8 @@
+main := () -> void {
+  if (cond = 1, then = {
+    say "1 is true.";
+  }, else = {
+    say "1 is false.";
+  });
+  say if (cond = 1, then = 0, else = 2);
+}

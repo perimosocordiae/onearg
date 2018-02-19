@@ -1,7 +1,7 @@
 from type_objects import FuncType
 
 
-def interpret(syntax_tree):
+def interpret(syntax_tree, all_types):
   # assemble the global scope
   scope = {}
   for defn in syntax_tree:
@@ -10,12 +10,16 @@ def interpret(syntax_tree):
 
   # hack: register the builtin `say` functions
   say_fn = SayFunction()
-  scope[('say', 'string', 'void')] = say_fn
-  scope[('say', 'int', 'void')] = say_fn
-  scope[('say', 'float', 'void')] = say_fn
+  for sig in all_types['say']:
+    scope[('say',) + sig] = say_fn
+
+  # hack: register the builtin `if` function
+  if_fn = IfFunction()
+  for sig in all_types['if']:
+    scope[('if',) + sig] = if_fn
 
   # look for the entry point: a function named `main`.
-  main_sig = ('main', '()', 'void')
+  main_sig = ('main', (), 'void')
   if main_sig not in scope:
     print('No `main` function found, stopping.')
     print(scope.keys())
@@ -28,6 +32,14 @@ class SayFunction(object):
     print(arg)
 
 
+class IfFunction(object):
+  def call(self, scope, arg):
+    res = arg['then'] if arg['cond'] else arg['else']
+    # handle thunk case
+    if hasattr(res, 'execute'):
+      return res.execute(scope)
+    return res
+
 
 if __name__ == '__main__':
   import sys
@@ -36,5 +48,5 @@ if __name__ == '__main__':
   from type_checker import check_types
 
   tree = build_ast(PARSER.parseFile(sys.argv[1], parseAll=True))
-  check_types(tree)
-  interpret(tree)
+  all_types = check_types(tree)
+  interpret(tree, all_types)
