@@ -15,8 +15,18 @@ def _setup():
   # basic alphanumeric/underscore identifiers
   identifier = pp.Word(pp.alphas + '_', pp.alphanums + '_').setResultsName('id')
 
+  # type name is plain or parameterized: thunk[T], array[T], etc.
+  type_name = pp.Forward()
+  param_type = pp.Group(pp.And([
+    identifier,
+    pp.Literal('[').suppress(),
+    type_name,
+    pp.Literal(']').suppress()
+  ])).setResultsName('param_type')
+  type_name << pp.Group(param_type | identifier).setResultsName('type_name')
+
   # type declarations look like "name: type"
-  type_def = pp.Group(identifier + pp.Literal(':').suppress() + identifier)
+  type_def = pp.Group(identifier + pp.Literal(':').suppress() + type_name)
   # struct types look like "(name1: type1, name2: type2, ...)"
   struct_def = pp.Group(pp.And([
       LPAREN,
@@ -60,9 +70,9 @@ def _setup():
 
   # function definitions are a signature + body: "argtype -> rettype { body }"
   func_type = pp.Group(pp.And([
-      pp.Group(struct_def | identifier).setResultsName('arg_type'),
+      pp.Group(struct_def | type_name).setResultsName('arg_type'),
       pp.Literal('->').suppress(),
-      pp.Group(struct_def | identifier).setResultsName('ret_type'),
+      pp.Group(struct_def | type_name).setResultsName('ret_type'),
   ])).setResultsName('func_type')
   # function bodies are just scopes
   func_def = pp.Group(pp.And([

@@ -4,9 +4,13 @@ say := int -> void {}
 say := float -> void {}
 say := string -> void {}
 
-// TODO: support Any types here.
+// TODO: support wildcard types here.
 if := (cond: int, then: void, else: void) -> void {}
 if := (cond: int, then: int, else: int) -> int {}
 if := (cond: int, then: float, else: float) -> float {}
 if := (cond: int, then: string, else: string) -> string {}
-// also thunk[T] versions of the above
+
+if := (cond: int, then: thunk[void], else: thunk[void]) -> void {}
+if := (cond: int, then: thunk[int], else: thunk[int]) -> int {}
+if := (cond: int, then: thunk[float], else: thunk[float]) -> float {}
+if := (cond: int, then: thunk[string], else: thunk[string]) -> string {}

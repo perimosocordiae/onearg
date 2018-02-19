@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from parser import PARSER
 from syntax_tree import build_ast
-from type_objects import BuiltinType, FuncType
+from type_objects import BuiltinType
 
 
 def check_types(syntax_tree):
@@ -15,16 +15,6 @@ def check_types(syntax_tree):
   # Define builtin function types.
   builtin_tree = build_ast(PARSER.parseFile('builtins.oa', parseAll=True))
   register_defined_types(builtin_tree, all_types)
-
-  # hack: add thunk versions, too.
-  if_fns = all_types['if']
-  for old_t in list(if_fns.values()):
-    thunk_t = 'thunk[%s]' % old_t.ret.name
-    new_t = FuncType(dict(arg_type=dict(struct_def=[('cond', 'int'),
-                                                    ('then', thunk_t),
-                                                    ('else', thunk_t)]),
-                          ret_type=dict(id=old_t.ret.name)))
-    if_fns[new_t.signature()] = new_t
 
   # First pass: collect all user-defined types.
   register_defined_types(syntax_tree, all_types)

@@ -1,8 +1,20 @@
 main := () -> void {
+
+  // defer execution of branches with thunks
   if (cond = 1, then = {
     say "1 is true.";
   }, else = {
     say "1 is false.";
   });
+
+  // `if` returns the value of the branch it took
   say if (cond = 1, then = 0, else = 2);
+
+  say if (cond = 0, then = {
+    say "fail";
+    1.0;
+  }, else = {
+    say "pass";
+    2.0;
+  });
 }

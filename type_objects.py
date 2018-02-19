@@ -29,20 +29,38 @@ class BuiltinType(TypeReference):
 
   def match(self, other):
     if not isinstance(other, BuiltinType):
-      return '%s != %s (not a builtin)' % (self.name, other.signature())
+      return '%s != %s' % (self.name, other.signature())
     if self.name != other.name:
       return '%s != %s' % (self.name, other.name)
 
 
-class ThunkType(object):
-  def __init__(self, wrapped_type):
-    self.wrapped_type = wrapped_type
+class ParameterizedType(object):
+  def __init__(self, parse_result):
+    self.outer = parse_result['id']
+    self.inner = parse_type(parse_result['type_name'])
+
+  def as_c_like(self):
+    return '%s<%s>' % (self.outer, self.inner.as_c_like())
 
   def signature(self):
-    return 'thunk[%s]' % self.wrapped_type.signature()
+    return '%s[%s]' % (self.outer, self.inner.signature())
+
+  def resolve(self, known_types):
+    self.inner = self.inner.resolve(known_types)
+    return self
 
   def match(self, other):
-    return self.wrapped_type.match(other)
+    if not isinstance(other, ParameterizedType):
+      return '%s != %s' % (self.signature(), other.signature())
+    if self.outer != other.outer:
+      return '%s != %s' % (self.signature(), other.signature())
+    return self.inner.match(other.inner)
+
+
+def parse_type(type_name):
+  if 'id' in type_name:
+    return TypeReference(type_name['id'])
+  return ParameterizedType(type_name['param_type'])
 
 
 class StructType(object):
@@ -50,7 +68,7 @@ class StructType(object):
     self.fields = {}
     for f in parse_result:
       name, typ = tuple(f)
-      self.fields[name] = TypeReference(typ)
+      self.fields[name] = parse_type(typ)
 
   def as_c_like(self):
     fields = ['%s %s;' % (t.as_c_like(), n) for n,t in self.fields.items()]
@@ -71,8 +89,8 @@ class StructType(object):
       return '%s != %s (not a struct)' % (self, other)
     ours = set(self.fields)
     theirs = set(other.fields)
-    missing = ', '.join('"%s"' % f for f in sorted(ours - theirs))
-    extra = ', '.join('"%s"' % f for f in sorted(theirs - ours))
+    missing = ', '.join('`%s`' % f for f in sorted(ours - theirs))
+    extra = ', '.join('`%s`' % f for f in sorted(theirs - ours))
     if missing and extra:
       return 'missing fields %s, extra fields %s' % (missing, extra)
     if missing:
@@ -81,10 +99,10 @@ class StructType(object):
       return 'extra fields %s' % extra
     for name in other.fields:
       if name not in self.fields:
-        return 'missing field %s' % name
+        return 'missing field `%s`' % name
       msg = self.fields[name].match(other.fields[name])
       if msg:
-        return 'field %s mismatch: %s' % (name, msg)
+        return 'mismatching field `%s`: %s' % (name, msg)
 
   def signature(self):
     return tuple(sorted((n, t.signature()) for n,t in self.fields.items()))
@@ -96,13 +114,13 @@ class FuncType(object):
     if 'struct_def' in arg_type:
       self.arg = StructType(arg_type['struct_def'])
     else:
-      self.arg = TypeReference(arg_type['id'])
+      self.arg = parse_type(arg_type['type_name'])
 
     ret_type = parse_result['ret_type']
     if 'struct_def' in ret_type:
       self.ret = StructType(ret_type['struct_def'])
     else:
-      self.ret = TypeReference(ret_type['id'])
+      self.ret = parse_type(ret_type['type_name'])
 
   def check_sub_types(self, known_types):
     yield from self.arg.check_sub_types(known_types)

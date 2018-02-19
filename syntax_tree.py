@@ -1,5 +1,5 @@
 import ast
-from type_objects import StructType, FuncType, BuiltinType, ThunkType
+from type_objects import StructType, FuncType, BuiltinType, ParameterizedType
 
 
 class CallExpr(object):
@@ -23,7 +23,7 @@ class CallExpr(object):
         if not mismatch_msg:
           break
       else:
-        raise TypeError('No valid overload for function %s: %s' % (
+        raise TypeError('No valid overload for function `%s`: %s' % (
                         self.func_name, mismatch_msg))
       self.type = func_type.ret.resolve(known_types)
     return self.type
@@ -154,7 +154,9 @@ class ScopeExpr(object):
     if self.type is None:
       for expr in self.thunk.body:
         t = expr.infer_types(scope, known_types, ret_type)
-      self.type = ThunkType(t)
+      self.type = ParameterizedType.__new__(ParameterizedType)
+      self.type.outer = 'thunk'
+      self.type.inner = t
     return self.type
 
   def execute(self, scope):
