@@ -91,9 +91,10 @@ class StructExpr(object):
 
   def infer_types(self, scope, known_types, ret_type):
     if self.type is None:
-      self.type = StructType([])
+      fields = {}
       for name, expr in self.fields.items():
-        self.type.fields[name] = expr.infer_types(scope, known_types, ret_type)
+        fields[name] = expr.infer_types(scope, known_types, ret_type)
+      self.type = StructType(fields)
     return self.type
 
   def execute(self, scope):
@@ -132,8 +133,6 @@ class ReturnExpr(object):
       passed_type = self.ret_val.infer_types(scope, known_types, ret_type)
       mismatch_msg = passed_type.match(ret_type)
       if mismatch_msg:
-        import IPython
-        IPython.embed()
         raise TypeError('Invalid return type: ' + mismatch_msg)
       self.type = BuiltinType('void')
     return self.type
@@ -154,9 +153,7 @@ class ScopeExpr(object):
     if self.type is None:
       for expr in self.thunk.body:
         t = expr.infer_types(scope, known_types, ret_type)
-      self.type = ParameterizedType.__new__(ParameterizedType)
-      self.type.outer = 'thunk'
-      self.type.inner = t
+      self.type = ParameterizedType('thunk', t)
     return self.type
 
   def execute(self, scope):
@@ -194,7 +191,7 @@ def expression(parse_result):
 class FuncDef(object):
   def __init__(self, name, parse_result):
     self.name = name
-    self.type = FuncType(parse_result['func_type'])
+    self.type = FuncType.parse(parse_result['func_type'])
     self.body = [expression(expr) for expr in parse_result['scope']]
 
   def as_c_like(self):
@@ -231,7 +228,7 @@ class FuncDef(object):
 class StructDef(object):
   def __init__(self, name, parse_result):
     self.name = name
-    self.type = StructType(parse_result)
+    self.type = StructType.parse(parse_result)
 
   def as_c_like(self):
     return 'struct %s %s;' % (self.name, self.type.as_c_like())

@@ -35,9 +35,15 @@ class BuiltinType(TypeReference):
 
 
 class ParameterizedType(object):
-  def __init__(self, parse_result):
-    self.outer = parse_result['id']
-    self.inner = parse_type(parse_result['type_name'])
+  def __init__(self, outer, inner):
+    self.outer = outer
+    self.inner = inner
+
+  @classmethod
+  def parse(cls, parse_result):
+    outer = parse_result['id']
+    inner = _type_name(parse_result['type_name'])
+    return cls(outer, inner)
 
   def as_c_like(self):
     return '%s<%s>' % (self.outer, self.inner.as_c_like())
@@ -57,18 +63,23 @@ class ParameterizedType(object):
     return self.inner.match(other.inner)
 
 
-def parse_type(type_name):
+def _type_name(type_name):
   if 'id' in type_name:
     return TypeReference(type_name['id'])
-  return ParameterizedType(type_name['param_type'])
+  return ParameterizedType.parse(type_name['param_type'])
 
 
 class StructType(object):
-  def __init__(self, parse_result):
-    self.fields = {}
+  def __init__(self, fields):
+    self.fields = fields
+
+  @classmethod
+  def parse(cls, parse_result):
+    fields = {}
     for f in parse_result:
       name, typ = tuple(f)
-      self.fields[name] = parse_type(typ)
+      fields[name] = _type_name(typ)
+    return cls(fields)
 
   def as_c_like(self):
     fields = ['%s %s;' % (t.as_c_like(), n) for n,t in self.fields.items()]
@@ -109,18 +120,25 @@ class StructType(object):
 
 
 class FuncType(object):
-  def __init__(self, parse_result):
+  def __init__(self, arg_type, ret_type):
+    self.arg = arg_type
+    self.ret = ret_type
+
+  @classmethod
+  def parse(cls, parse_result):
     arg_type = parse_result['arg_type']
     if 'struct_def' in arg_type:
-      self.arg = StructType(arg_type['struct_def'])
+      arg = StructType.parse(arg_type['struct_def'])
     else:
-      self.arg = parse_type(arg_type['type_name'])
+      arg = _type_name(arg_type['type_name'])
 
     ret_type = parse_result['ret_type']
     if 'struct_def' in ret_type:
-      self.ret = StructType(ret_type['struct_def'])
+      ret = StructType.parse(ret_type['struct_def'])
     else:
-      self.ret = parse_type(ret_type['type_name'])
+      ret = _type_name(ret_type['type_name'])
+
+    return cls(arg, ret)
 
   def check_sub_types(self, known_types):
     yield from self.arg.check_sub_types(known_types)

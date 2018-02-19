@@ -34,7 +34,8 @@ def register_defined_types(syntax_tree, all_types):
     overloads = all_types[defn.name]
     signature = defn.type.signature()
     if signature in overloads:
-      raise NameError('Duplicate definition: %s' % defn)
+      raise NameError('Duplicate definition for `%s`: %s' % (defn.name,
+                                                             signature))
     overloads[signature] = defn.type
 
 
