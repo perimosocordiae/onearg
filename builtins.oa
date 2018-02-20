@@ -14,3 +14,18 @@ if := (cond: int, then: thunk[void], else: thunk[void]) -> void {}
 if := (cond: int, then: thunk[int], else: thunk[int]) -> int {}
 if := (cond: int, then: thunk[float], else: thunk[float]) -> float {}
 if := (cond: int, then: thunk[string], else: thunk[string]) -> string {}
+
+add := (lhs: int, rhs: int) -> int {}
+add := (lhs: float, rhs: float) -> float {}
+add := (lhs: float, rhs: int) -> float {}
+add := (lhs: int, rhs: float) -> float {}
+
+sub := (lhs: int, rhs: int) -> int {}
+sub := (lhs: float, rhs: float) -> float {}
+sub := (lhs: float, rhs: int) -> float {}
+sub := (lhs: int, rhs: float) -> float {}
+
+mul := (lhs: int, rhs: int) -> int {}
+mul := (lhs: float, rhs: float) -> float {}
+mul := (lhs: float, rhs: int) -> float {}
+mul := (lhs: int, rhs: float) -> float {}

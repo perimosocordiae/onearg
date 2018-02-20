@@ -68,7 +68,7 @@ class AssignExpr(object):
   def infer_types(self, scope, known_types, ret_type):
     if self.type is None:
       self.type = self.value.infer_types(scope, known_types, ret_type)
-      scope[self.name] = self.value
+      scope[self.name] = self.type
     return self.type
 
   def execute(self, scope):
@@ -113,7 +113,7 @@ class Reference(object):
     if self.type is None:
       if self.name not in scope:
         raise NameError('Variable `%s` is not defined.' % self.name)
-      self.type = scope[self.name].infer_types(scope, known_types, ret_type)
+      self.type = scope[self.name].resolve({**known_types, **scope})
     return self.type
 
   def execute(self, scope):

@@ -1,0 +1,13 @@
+factorial := (n: int) -> int {
+  return if (cond = n, then = {
+    m = sub(lhs = n, rhs = 1);
+    mul(lhs = n, rhs = factorial(n = m));
+  }, else = {
+    1;
+  });
+}
+
+main := () -> void {
+  say "factorial(5) = ";
+  say factorial(n = 5);
+}

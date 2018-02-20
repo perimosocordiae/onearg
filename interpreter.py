@@ -1,3 +1,4 @@
+import operator
 from type_objects import FuncType
 
 
@@ -8,15 +9,19 @@ def interpret(syntax_tree, all_types):
     if isinstance(defn.type, FuncType):
       scope[defn.signature()] = defn
 
-  # hack: register the builtin `say` functions
+  # hack: register the builtin functions
   say_fn = SayFunction()
   for sig in all_types['say']:
     scope[('say',) + sig] = say_fn
 
-  # hack: register the builtin `if` function
   if_fn = IfFunction()
   for sig in all_types['if']:
     scope[('if',) + sig] = if_fn
+
+  for op_name in ('add', 'sub', 'mul'):
+    fn = MathFunction(getattr(operator, op_name))
+    for sig in all_types[op_name]:
+      scope[(op_name,) + sig] = fn
 
   # look for the entry point: a function named `main`.
   main_sig = ('main', (), 'void')
@@ -39,6 +44,14 @@ class IfFunction(object):
     if hasattr(res, 'execute'):
       return res.execute(scope)
     return res
+
+
+class MathFunction(object):
+  def __init__(self, op):
+    self.op = op
+
+  def call(self, scope, arg):
+    return self.op(arg['lhs'], arg['rhs'])
 
 
 if __name__ == '__main__':
